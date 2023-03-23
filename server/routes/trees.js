@@ -6,12 +6,14 @@ const router = express.Router();
  * BASIC PHASE 1, Step A - Import model
  */
 // Your code here
+const {Tree} = require('../db/models');
 
 /**
  * INTERMEDIATE BONUS PHASE 1 (OPTIONAL), Step A:
  *   Import Op to perform comparison operations in WHERE clauses
  **/
 // Your code here
+const {Op} = require("sequelize");
 
 /**
  * BASIC PHASE 1, Step B - List of all trees in the database
@@ -25,6 +27,10 @@ const router = express.Router();
  */
 router.get('/', async (req, res, next) => {
     let trees = [];
+    trees = await Tree.findAll({
+        attributes: ['id', 'tree', 'heightFt'],
+        order: [['heightFt', 'DESC']]
+    });
 
     // Your code here
 
@@ -45,6 +51,13 @@ router.get('/:id', async (req, res, next) => {
 
     try {
         // Your code here
+        tree = await Tree.findOne({
+            where: {
+                id:{
+                    [Op.eq]: req.params.id
+                }
+            }
+        });
 
         if (tree) {
             res.json(tree);
@@ -82,6 +95,15 @@ router.get('/:id', async (req, res, next) => {
  */
 router.post('/', async (req, res, next) => {
     try {
+        let tree = await Tree.build();
+        if(req.params.name){tree.tree = req.params.name};
+        if(req.params.location){tree.location = req.params.location};
+        if(req.params.height){tree.heightFt = req.params.heightFt};
+        if(req.params.size){tree.groudCircumferenceFt = req.params.size};
+
+        await tree.validate();
+        await tree.save();
+
         res.json({
             status: "success",
             message: "Successfully created new tree",
@@ -117,6 +139,22 @@ router.post('/', async (req, res, next) => {
  */
 router.delete('/:id', async (req, res, next) => {
     try {
+        let tree = await Tree.findOne({
+            where:{
+                id:{
+                    [Op.eq]:req.params.id
+                }
+            }
+        });
+        if(!tree){
+            next({
+                status: "Not found",
+                message: `Could not remove tree ${req.params.id}`,
+                details: "Tree not found"
+            });
+        }
+        await tree.destroy();
+
         res.json({
             status: "success",
             message: `Successfully removed tree ${req.params.id}`,
@@ -165,8 +203,39 @@ router.delete('/:id', async (req, res, next) => {
  *     - Value: Tree not found
  */
 router.put('/:id', async (req, res, next) => {
+    if (req.params.id != req.body.id){
+        next({
+            status: "Error",
+            message: `Could not update tree ${req.params.id}`,
+            details: `${req.body.id} does not match ${req.params.id}`
+        })
+    }
     try {
         // Your code here
+        let tree = await Tree.findOne({
+            where: {
+                id:{
+                    [Op.eq]: req.params.id
+                }
+            }
+        });
+
+        if(!tree){
+            next({
+                status: "not-found",
+                message: `could not update tree ${req.params.id}`,
+                deatils: "Tree not found"
+            })
+        }
+
+        if(req.body.name){tree.tree = req.body.name};
+        if(req.body.location){tree.location = req.body.location};
+        if(req.body.height){tree.heightFt = req.body.height};
+        if(req.body.size){tree.groudCircumferenceFt = req.body.groudCircumferenceFt};
+
+        await tree.validate();
+        await tree.save();
+
     } catch(err) {
         next({
             status: "error",
@@ -189,6 +258,15 @@ router.put('/:id', async (req, res, next) => {
  */
 router.get('/search/:value', async (req, res, next) => {
     let trees = [];
+    trees = await Tree.findAll({
+        where: {
+            name:{
+                [Op.substring]:req.params.value
+            }
+        },
+        attributes:['heightFt', 'tree', 'id'],
+        order: [['heightFt', 'DESC']]
+    })
 
 
     res.json(trees);
